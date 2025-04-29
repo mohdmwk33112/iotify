@@ -8,15 +8,18 @@ import '../../widgets/room_insights.dart';
 import '../../widgets/add_room_dialog.dart';
 import '../../widgets/energy_graph.dart';
 import 'device_card.dart';
+import 'iron_meter_card.dart';
+import 'smart_bulb_card.dart';
+import '../add_device/device_type_selection_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
   @override
-  State<DashboardScreen> createState() => _DashboardScreenState();
+  State<DashboardScreen> createState() => DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> with TickerProviderStateMixin {
+class DashboardScreenState extends State<DashboardScreen> with TickerProviderStateMixin {
   late TabController _tabController;
   int _selectedTabIndex = 0;
 
@@ -77,7 +80,10 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
   }
 
   void _navigateToAddDevice() {
-    NavigationService.navigateTo('/add_device');
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const DeviceTypeSelectionScreen()),
+    );
   }
 
   void _showRoomOptions(String roomName) {
@@ -133,9 +139,16 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
     );
   }
 
+  void switchToRoom(String roomName) {
+    final roomProvider = Provider.of<RoomProvider>(context, listen: false);
+    final roomIndex = roomProvider.rooms.indexOf(roomName);
+    if (roomIndex != -1) {
+      _tabController.animateTo(roomIndex + 1); // +1 because first tab is "All"
+    }
+  }
+
   Widget _buildAllDevicesView(BuildContext context, List<Map<String, dynamic>> devices) {
     final energyProvider = Provider.of<EnergyProvider>(context);
-    final screenSize = MediaQuery.of(context).size;
 
     return Column(
       children: [
@@ -220,21 +233,78 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
             itemCount: devices.length,
             itemBuilder: (context, index) {
               final device = devices[index];
-              return DeviceCard(
-                deviceId: device['id'],
-                deviceName: device['name'],
-                roomName: device['room'],
-                isOn: device['isOn'],
-                onToggle: (value) {
-                  Provider.of<RoomProvider>(context, listen: false).toggleDevice(device['id']);
-                },
-                onRoomChange: (newRoom) {
-                  Provider.of<RoomProvider>(context, listen: false).updateDeviceRoom(device['id'], newRoom);
-                },
-                onDelete: () {
-                  Provider.of<RoomProvider>(context, listen: false).deleteDevice(device['id']);
-                },
-              );
+              return device['type'] == 'iron_meter'
+                  ? IronMeterCard(
+                      deviceId: device['id'],
+                      deviceName: device['name'],
+                      roomName: device['room'],
+                      remoteType: device['remoteType'],
+                      buttons: List<Map<String, dynamic>>.from(device['buttons']),
+                      isConnected: true, // TODO: Implement actual connection state
+                      onRoomChange: (newRoom) {
+                        Provider.of<RoomProvider>(context, listen: false)
+                            .updateDeviceRoom(device['id'], newRoom);
+                      },
+                      onDelete: () {
+                        Provider.of<RoomProvider>(context, listen: false)
+                            .deleteDevice(device['id']);
+                      },
+                      onButtonPress: (deviceId, buttonName) {
+                        Provider.of<RoomProvider>(context, listen: false)
+                            .sendIRCommand(deviceId, buttonName);
+                      },
+                      onButtonsUpdate: (deviceId, updatedButtons) {
+                        Provider.of<RoomProvider>(context, listen: false)
+                            .updateDeviceButtons(deviceId, updatedButtons);
+                      },
+                    )
+                  : device['type'] == 'smart_bulb'
+                      ? SmartBulbCard(
+                          deviceId: device['id'],
+                          deviceName: device['name'],
+                          roomName: device['room'],
+                          isOn: device['isOn'],
+                          brightness: device['brightness'] ?? 100,
+                          color: device['color'] ?? '#FFFFFF',
+                          onToggle: (value) {
+                            Provider.of<RoomProvider>(context, listen: false)
+                                .toggleDevice(device['id']);
+                          },
+                          onRoomChange: (newRoom) {
+                            Provider.of<RoomProvider>(context, listen: false)
+                                .updateDeviceRoom(device['id'], newRoom);
+                          },
+                          onDelete: () {
+                            Provider.of<RoomProvider>(context, listen: false)
+                                .deleteDevice(device['id']);
+                          },
+                          onBrightnessChange: (brightness) {
+                            Provider.of<RoomProvider>(context, listen: false)
+                                .updateSmartBulbBrightness(device['id'], brightness);
+                          },
+                          onColorChange: (color) {
+                            Provider.of<RoomProvider>(context, listen: false)
+                                .updateSmartBulbColor(device['id'], color);
+                          },
+                        )
+                      : DeviceCard(
+                          deviceId: device['id'],
+                          deviceName: device['name'],
+                          roomName: device['room'],
+                          isOn: device['isOn'],
+                          onToggle: (value) {
+                            Provider.of<RoomProvider>(context, listen: false)
+                                .toggleDevice(device['id']);
+                          },
+                          onRoomChange: (newRoom) {
+                            Provider.of<RoomProvider>(context, listen: false)
+                                .updateDeviceRoom(device['id'], newRoom);
+                          },
+                          onDelete: () {
+                            Provider.of<RoomProvider>(context, listen: false)
+                                .deleteDevice(device['id']);
+                          },
+                        );
             },
           ),
         ),
@@ -286,7 +356,7 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
                     side: BorderSide(
-                      color: Theme.of(context).colorScheme.outline.withOpacity(0.5),
+                      color: Theme.of(context).colorScheme.outline.withValues(alpha: 128),
                       width: 1,
                     ),
                   ),
@@ -326,25 +396,82 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                   side: BorderSide(
-                    color: Theme.of(context).colorScheme.outline.withOpacity(0.5),
+                    color: Theme.of(context).colorScheme.outline.withValues(alpha: 128),
                     width: 1,
                   ),
                 ),
-                child: DeviceCard(
-                  deviceId: device['id'],
-                  deviceName: device['name'],
-                  roomName: device['room'],
-                  isOn: device['isOn'],
-                  onToggle: (value) {
-                    Provider.of<RoomProvider>(context, listen: false).toggleDevice(device['id']);
-                  },
-                  onRoomChange: (newRoom) {
-                    Provider.of<RoomProvider>(context, listen: false).updateDeviceRoom(device['id'], newRoom);
-                  },
-                  onDelete: () {
-                    Provider.of<RoomProvider>(context, listen: false).deleteDevice(device['id']);
-                  },
-                ),
+                child: device['type'] == 'iron_meter'
+                    ? IronMeterCard(
+                        deviceId: device['id'],
+                        deviceName: device['name'],
+                        roomName: device['room'],
+                        remoteType: device['remoteType'],
+                        buttons: List<Map<String, dynamic>>.from(device['buttons']),
+                        isConnected: true, // TODO: Implement actual connection state
+                        onRoomChange: (newRoom) {
+                          Provider.of<RoomProvider>(context, listen: false)
+                              .updateDeviceRoom(device['id'], newRoom);
+                        },
+                        onDelete: () {
+                          Provider.of<RoomProvider>(context, listen: false)
+                              .deleteDevice(device['id']);
+                        },
+                        onButtonPress: (deviceId, buttonName) {
+                          Provider.of<RoomProvider>(context, listen: false)
+                              .sendIRCommand(deviceId, buttonName);
+                        },
+                        onButtonsUpdate: (deviceId, updatedButtons) {
+                          Provider.of<RoomProvider>(context, listen: false)
+                              .updateDeviceButtons(deviceId, updatedButtons);
+                        },
+                      )
+                    : device['type'] == 'smart_bulb'
+                        ? SmartBulbCard(
+                            deviceId: device['id'],
+                            deviceName: device['name'],
+                            roomName: device['room'],
+                            isOn: device['isOn'],
+                            brightness: device['brightness'] ?? 100,
+                            color: device['color'] ?? '#FFFFFF',
+                            onToggle: (value) {
+                              Provider.of<RoomProvider>(context, listen: false)
+                                  .toggleDevice(device['id']);
+                            },
+                            onRoomChange: (newRoom) {
+                              Provider.of<RoomProvider>(context, listen: false)
+                                  .updateDeviceRoom(device['id'], newRoom);
+                            },
+                            onDelete: () {
+                              Provider.of<RoomProvider>(context, listen: false)
+                                  .deleteDevice(device['id']);
+                            },
+                            onBrightnessChange: (brightness) {
+                              Provider.of<RoomProvider>(context, listen: false)
+                                  .updateSmartBulbBrightness(device['id'], brightness);
+                            },
+                            onColorChange: (color) {
+                              Provider.of<RoomProvider>(context, listen: false)
+                                  .updateSmartBulbColor(device['id'], color);
+                            },
+                          )
+                        : DeviceCard(
+                            deviceId: device['id'],
+                            deviceName: device['name'],
+                            roomName: device['room'],
+                            isOn: device['isOn'],
+                            onToggle: (value) {
+                              Provider.of<RoomProvider>(context, listen: false)
+                                  .toggleDevice(device['id']);
+                            },
+                            onRoomChange: (newRoom) {
+                              Provider.of<RoomProvider>(context, listen: false)
+                                  .updateDeviceRoom(device['id'], newRoom);
+                            },
+                            onDelete: () {
+                              Provider.of<RoomProvider>(context, listen: false)
+                                  .deleteDevice(device['id']);
+                            },
+                          ),
               );
             },
           ),
@@ -361,7 +488,6 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
   @override
   Widget build(BuildContext context) {
     final roomProvider = Provider.of<RoomProvider>(context);
-    final screenSize = MediaQuery.of(context).size;
 
     return Scaffold(
       appBar: AppBar(
@@ -371,7 +497,7 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
             color: Theme.of(context).colorScheme.onSurface,
           ),
         ),
-        actions: [],
+        actions: const [],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(48),
           child: Container(
@@ -402,7 +528,7 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
                     isScrollable: true,
                     indicatorColor: AppTheme.primaryColor,
                     labelColor: AppTheme.primaryColor,
-                    unselectedLabelColor: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                    unselectedLabelColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 128),
                     tabs: [
                       const Tab(text: 'All'),
                       ...roomProvider.rooms.map((room) => Tab(
@@ -431,6 +557,9 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
               // Already on dashboard
               break;
             case 1:
+              NavigationService.navigateTo('/insights');
+              break;
+            case 2:
               NavigationService.navigateTo('/settings');
               break;
           }
@@ -440,6 +569,11 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
             icon: Icon(Icons.home_outlined),
             selectedIcon: Icon(Icons.home),
             label: 'Home',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.insights_outlined),
+            selectedIcon: Icon(Icons.insights),
+            label: 'Insights',
           ),
           NavigationDestination(
             icon: Icon(Icons.settings_outlined),

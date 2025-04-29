@@ -66,6 +66,41 @@ class RoomProvider with ChangeNotifier {
     }
   }
 
+  void updateDeviceButtons(String deviceId, List<Map<String, dynamic>> updatedButtons) {
+    final index = _devices.indexWhere((device) => device['id'] == deviceId);
+    if (index != -1 && _devices[index]['type'] == 'iron_meter') {
+      _devices[index]['buttons'] = updatedButtons;
+      notifyListeners();
+    }
+  }
+
+  void updateSmartBulbBrightness(String deviceId, int brightness) {
+    final index = _devices.indexWhere((device) => device['id'] == deviceId && device['type'] == 'smart_bulb');
+    if (index != -1) {
+      _devices[index]['brightness'] = brightness;
+      notifyListeners();
+    }
+  }
+
+  void updateSmartBulbColor(String deviceId, String color) {
+    final index = _devices.indexWhere((device) => device['id'] == deviceId && device['type'] == 'smart_bulb');
+    if (index != -1) {
+      _devices[index]['color'] = color;
+      notifyListeners();
+    }
+  }
+
+  void sendIRCommand(String deviceId, String buttonName) {
+    final deviceIndex = _devices.indexWhere(
+      (device) => device['id'] == deviceId && device['type'] == 'iron_meter',
+    );
+
+    if (deviceIndex != -1) {
+      // TODO: Implement actual IR command sending through platform channel
+      // This will be implemented when the hardware integration is ready
+    }
+  }
+
   List<Map<String, dynamic>> getDevicesByRoom(String room) {
     if (room == 'All') return List.unmodifiable(_devices);
     return List.unmodifiable(_devices.where((device) => device['room'] == room).toList());

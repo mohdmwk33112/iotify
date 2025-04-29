@@ -10,6 +10,7 @@ import 'screens/dashboard/dashboard_screen.dart';
 import 'screens/add_device/add_device_screen.dart';
 import 'screens/schedule/device_schedule_screen.dart';
 import 'screens/settings/settings_screen.dart';
+import 'screens/insights/insights_screen.dart';
 import 'theme/app_theme.dart';
 import 'services/navigation_service.dart';
 
@@ -48,11 +49,15 @@ class MyApp extends StatelessWidget {
         '/onboarding': (context) => const OnboardingScreen(),
         '/auth': (context) => const AuthScreen(),
         '/dashboard': (context) => const DashboardScreen(),
-        '/add_device': (context) => const AddDeviceScreen(),
+        '/add_device': (context) {
+          final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>?;
+          return AddDeviceScreen(deviceType: args?['deviceType'] ?? 'smart_plug');
+        },
         '/schedule': (context) {
           final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
           return DeviceScheduleScreen(deviceName: args['deviceName']);
         },
+        '/insights': (context) => const InsightsScreen(),
         '/settings': (context) => const SettingsScreen(),
       },
     );
