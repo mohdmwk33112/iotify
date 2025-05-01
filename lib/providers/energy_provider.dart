@@ -46,7 +46,13 @@ class EnergyProvider with ChangeNotifier {
 
   double getTotalConsumption(String deviceId) {
     final data = getDeviceEnergyData(deviceId);
-    return data.fold(0, (sum, item) => sum + item.consumption);
+    return data.fold(0.0, (double sum, item) => sum + item.consumption) / 1000; // Convert to kWh
+  }
+
+  double getCurrentConsumption(String deviceId) {
+    final data = getDeviceEnergyData(deviceId);
+    if (data.isEmpty) return 0;
+    return data.last.consumption; // Current consumption in Watts
   }
 
   double getTotalCost(String deviceId) {
@@ -85,6 +91,44 @@ class EnergyProvider with ChangeNotifier {
     // Simulated efficiency score (0-100)
     final random = Random();
     return random.nextDouble() * 100;
+  }
+
+  Map<String, double> getUptimeDowntime(String deviceId) {
+    final data = getDeviceEnergyData(deviceId);
+    double uptime = 0;
+    double downtime = 0;
+    
+    for (var item in data) {
+      if (item.consumption > 0) {
+        uptime += 1;
+      } else {
+        downtime += 1;
+      }
+    }
+    
+    return {
+      'uptime': uptime,
+      'downtime': downtime,
+    };
+  }
+
+  Map<String, double> getPowerAndCostSaved(String deviceId) {
+    final data = getDeviceEnergyData(deviceId);
+    double powerSaved = 0;
+    double costSaved = 0;
+    
+    // Calculate potential savings based on optimal usage patterns
+    for (var item in data) {
+      if (item.consumption > 500) { // Assuming 500W as threshold for high consumption
+        powerSaved += (item.consumption - 500);
+        costSaved += (item.consumption - 500) * 0.15 / 1000; // $0.15 per kWh
+      }
+    }
+    
+    return {
+      'powerSaved': powerSaved,
+      'costSaved': costSaved,
+    };
   }
 }
 

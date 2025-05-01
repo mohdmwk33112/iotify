@@ -2,15 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/energy_provider.dart';
 import '../providers/room_provider.dart';
+import '../theme/app_colors.dart';
 import 'energy_graph.dart';
 
-class DeviceInsightsDialog extends StatelessWidget {
+class SmartPlugInsightsDialog extends StatelessWidget {
   final String deviceId;
   final String deviceName;
   final String roomName;
   final Function() onDelete;
 
-  const DeviceInsightsDialog({
+  const SmartPlugInsightsDialog({
     required this.deviceId,
     required this.deviceName,
     required this.roomName,
@@ -24,8 +25,9 @@ class DeviceInsightsDialog extends StatelessWidget {
     final screenSize = MediaQuery.of(context).size;
     final isLandscape = screenSize.width > screenSize.height;
     final isTablet = screenSize.width > 600;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final energyProvider = Provider.of<EnergyProvider>(context);
+    final energyProvider = Provider.of<EnergyProvider>(context, listen: false);
     
     // Initialize data if not already done
     energyProvider.initializeData(deviceId, roomName);
@@ -85,27 +87,80 @@ class DeviceInsightsDialog extends StatelessWidget {
               ),
             ),
             SizedBox(height: isIOS ? 12 : 8),
-            Flexible(
+            Expanded(
               child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     EnergyGraph(data: deviceData),
                     SizedBox(height: isIOS ? 28 : 24),
-                    // Statistics
+                    // Energy Insights
                     Text(
-                      'Operating Time',
+                      'Energy Insights',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: isIOS ? 17 : 16,
                       ),
                     ),
                     SizedBox(height: isIOS ? 12 : 8),
-                    Text(
-                      'Last 24 hours: ${_calculateOperatingTime(deviceData)} hours',
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        fontSize: isIOS ? 16 : 18,
-                      ),
+                    GridView.count(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      crossAxisCount: 2,
+                      mainAxisSpacing: 16,
+                      crossAxisSpacing: 16,
+                      childAspectRatio: 1.2,
+                      children: [
+                        _buildInsightTile(
+                          context,
+                          Icons.bolt,
+                          'Current Power',
+                          '${_calculateCurrentConsumption(deviceData).toStringAsFixed(1)} W',
+                          isDark,
+                          isIOS,
+                        ),
+                        _buildInsightTile(
+                          context,
+                          Icons.power,
+                          'Total Energy',
+                          '${_calculateTotalConsumption(deviceData).toStringAsFixed(1)} Wh',
+                          isDark,
+                          isIOS,
+                        ),
+                        _buildInsightTile(
+                          context,
+                          Icons.attach_money,
+                          'Total Cost',
+                          '\$${_calculateTotalCost(deviceData).toStringAsFixed(2)}',
+                          isDark,
+                          isIOS,
+                        ),
+                        _buildInsightTile(
+                          context,
+                          Icons.timer,
+                          'Uptime',
+                          '${_calculateTotalUptime(deviceData).toStringAsFixed(1)}h',
+                          isDark,
+                          isIOS,
+                        ),
+                        _buildInsightTile(
+                          context,
+                          Icons.timer_off,
+                          'Downtime',
+                          '${_calculateTotalDowntime(deviceData).toStringAsFixed(1)}h',
+                          isDark,
+                          isIOS,
+                        ),
+                        _buildInsightTile(
+                          context,
+                          Icons.savings,
+                          'Cost Saved',
+                          '\$${_calculateTotalSavedCost(deviceData).toStringAsFixed(2)}',
+                          isDark,
+                          isIOS,
+                        ),
+                      ],
                     ),
                     SizedBox(height: isIOS ? 28 : 24),
                     // Buttons Row
@@ -164,6 +219,31 @@ class DeviceInsightsDialog extends StatelessWidget {
                             ),
                           ),
                         ),
+                        // Delete Device Button
+                        SizedBox(
+                          width: isLandscape ? 200 : (isTablet ? 250 : double.infinity),
+                          child: ElevatedButton.icon(
+                            onPressed: () => _showDeleteConfirmationDialog(context),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red.shade700,
+                              foregroundColor: Colors.white,
+                              minimumSize: Size(0, isIOS ? 52 : 48),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(isIOS ? 10 : 8),
+                              ),
+                            ),
+                            icon: Icon(
+                              isIOS ? Icons.delete_outline : Icons.delete,
+                              size: isIOS ? 22 : 24,
+                            ),
+                            label: Text(
+                              'Delete Device',
+                              style: TextStyle(
+                                fontSize: isIOS ? 16 : 14,
+                              ),
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ],
@@ -176,14 +256,10 @@ class DeviceInsightsDialog extends StatelessWidget {
     );
   }
 
-  String _calculateOperatingTime(List<EnergyData> data) {
-    if (data.isEmpty) return '0';
-    
-    final activeHours = data.where((item) => item.consumption > 0).length;
-    return activeHours.toString();
-  }
-
-  void _showUpdateDeviceDialog(BuildContext context, String deviceId) {
+  void _showUpdateDeviceDialog(
+    BuildContext context,
+    String deviceId,
+  ) {
     final deviceNameController = TextEditingController(text: deviceName);
     String selectedRoom = roomName;
     final roomProvider = Provider.of<RoomProvider>(context, listen: false);
@@ -238,9 +314,6 @@ class DeviceInsightsDialog extends StatelessWidget {
             onPressed: () {
               if (deviceNameController.text.isNotEmpty) {
                 roomProvider.updateDeviceName(deviceId, deviceNameController.text);
-                if (selectedRoom != roomName) {
-                  roomProvider.updateDeviceRoom(deviceId, selectedRoom);
-                }
                 Navigator.pop(context);
               }
             },
@@ -334,6 +407,110 @@ class DeviceInsightsDialog extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildInsightTile(
+    BuildContext context,
+    IconData icon,
+    String label,
+    String value,
+    bool isDark,
+    bool isIOS,
+  ) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(
+          icon,
+          size: 24,
+          color: isDark ? AppColors.darkAccentPurple : AppColors.lightAccentPurple,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: isDark ? AppColors.darkTextSecondaryStart : AppColors.lightTextSecondary,
+            fontSize: isIOS ? 13 : 12,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+            color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+            fontWeight: FontWeight.bold,
+            fontSize: isIOS ? 15 : 14,
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ],
+    );
+  }
+
+  double _calculateCurrentConsumption(List<EnergyData> data) {
+    if (data.isEmpty) return 0;
+    return data.last.consumption;
+  }
+
+  double _calculateTotalConsumption(List<EnergyData> data) {
+    if (data.isEmpty) return 0;
+    return data.fold(0, (sum, point) => sum + point.consumption);
+  }
+
+  double _calculateTotalCost(List<EnergyData> data) {
+    const double costPerKWh = 0.12; // Example rate, adjust as needed
+    return (_calculateTotalConsumption(data) / 1000) * costPerKWh;
+  }
+
+  double _calculateTotalUptime(List<EnergyData> data) {
+    if (data.isEmpty) return 0;
+    return data.where((point) => point.consumption > 0).length.toDouble();
+  }
+
+  double _calculateTotalDowntime(List<EnergyData> data) {
+    if (data.isEmpty) return 0;
+    return data.where((point) => point.consumption == 0).length.toDouble();
+  }
+
+  double _calculateTotalSavedCost(List<EnergyData> data) {
+    const double costPerKWh = 0.12; // Example rate, adjust as needed
+    return (_calculatePowerSaved(data) / 1000) * costPerKWh;
+  }
+
+  double _calculatePowerSaved(List<EnergyData> data) {
+    if (data.isEmpty) return 0;
+    // Calculate potential consumption if device was always on
+    double potentialConsumption = data.length * 60; // Assuming 60W when on
+    return potentialConsumption - _calculateTotalConsumption(data);
+  }
+
+  void _showDeleteConfirmationDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Device'),
+        content: Text('Are you sure you want to delete $deviceName?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              onDelete();
+              Navigator.pop(context); // Close confirmation dialog
+              Navigator.pop(context); // Close device dialog
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade700,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
       ),
     );
   }

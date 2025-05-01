@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../theme/app_colors.dart';
 import 'smart_bulb_setup_screen.dart';
-import 'iron_meter_setup_screen.dart';
+import 'ir_emitter_setup_screen.dart';
 import '../add_device/add_device_screen.dart';
 
 class DeviceTypeSelectionScreen extends StatelessWidget {
@@ -53,10 +53,10 @@ class DeviceTypeSelectionScreen extends StatelessWidget {
                 ),
                 _buildDeviceTypeCard(
                   context,
-                  'Iron Meter',
-                  Icons.tv,
+                  'IR Emitter',
+                  Icons.settings_remote,
                   'Control your IR devices',
-                  () => _navigateToDeviceSetup(context, 'iron_meter'),
+                  () => _navigateToDeviceSetup(context, 'ir_emitter'),
                 ),
               ],
             ),
@@ -134,10 +134,10 @@ class DeviceTypeSelectionScreen extends StatelessWidget {
           MaterialPageRoute(builder: (context) => const SmartBulbSetupScreen()),
         );
         break;
-      case 'iron_meter':
+      case 'ir_emitter':
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const IronMeterSetupScreen()),
+          MaterialPageRoute(builder: (context) => const IrEmitterSetupScreen()),
         );
         break;
     }

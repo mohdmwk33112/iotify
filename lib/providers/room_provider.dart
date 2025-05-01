@@ -67,8 +67,8 @@ class RoomProvider with ChangeNotifier {
   }
 
   void updateDeviceButtons(String deviceId, List<Map<String, dynamic>> updatedButtons) {
-    final index = _devices.indexWhere((device) => device['id'] == deviceId);
-    if (index != -1 && _devices[index]['type'] == 'iron_meter') {
+    final index = _devices.indexWhere((device) => device['id'] == deviceId && device['type'] == 'ir_emitter');
+    if (index != -1) {
       _devices[index]['buttons'] = updatedButtons;
       notifyListeners();
     }
@@ -92,7 +92,7 @@ class RoomProvider with ChangeNotifier {
 
   void sendIRCommand(String deviceId, String buttonName) {
     final deviceIndex = _devices.indexWhere(
-      (device) => device['id'] == deviceId && device['type'] == 'iron_meter',
+      (device) => device['id'] == deviceId && device['type'] == 'ir_emitter',
     );
 
     if (deviceIndex != -1) {
